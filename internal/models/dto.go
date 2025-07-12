@@ -6,83 +6,191 @@ import (
 	"github.com/google/uuid"
 )
 
-// Request DTOs
+// Request DTOs - Data Transfer Objects for incoming API requests
 
-// GenerateWebhookRequest represents the request to generate a new webhook
+// GenerateWebhookRequest represents the request to generate a new webhook subscription
+// Used when creating a new webhook endpoint that will receive event notifications
 type GenerateWebhookRequest struct {
-	TenantID        string      `json:"tenant_id" binding:"required"`
-	AppName         string      `json:"app_name" binding:"required"`
-	SubscribedEvent string      `json:"subscribed_event" binding:"required"`
-	Type            WebhookType `json:"type" binding:"required"`
+	// TenantID identifies the tenant/organization requesting the webhook
+	// Required for multi-tenancy isolation and access control
+	TenantID string `json:"tenant_id" binding:"required"`
+
+	// AppName identifies the application or service creating the webhook
+	// Used for organizing and filtering webhooks by source application
+	AppName string `json:"app_name" binding:"required"`
+
+	// SubscribedEvent specifies which event type this webhook should receive
+	// Acts as a filter to determine which events will trigger this webhook
+	SubscribedEvent string `json:"subscribed_event" binding:"required"`
+
+	// Type determines the security model (public with HMAC or private with HMAC+JWT)
+	// Affects authentication requirements and security credentials generated
+	Type WebhookType `json:"type" binding:"required"`
 }
 
 // SubscribeWebhookRequest represents the manual subscription request
+// Used when an external service wants to register their own endpoint for webhooks
 type SubscribeWebhookRequest struct {
-	TenantID        string      `json:"tenant_id" binding:"required"`
-	AppName         string      `json:"app_name" binding:"required"`
-	TargetURL       string      `json:"target_url" binding:"required"`
-	SubscribedEvent string      `json:"subscribed_event" binding:"required"`
-	Type            WebhookType `json:"type" binding:"required"`
+	// TenantID identifies the tenant/organization creating the subscription
+	// Required for multi-tenancy isolation and event filtering
+	TenantID string `json:"tenant_id" binding:"required"`
+
+	// AppName identifies the application or service creating the subscription
+	// Used for organizing and managing webhook subscriptions
+	AppName string `json:"app_name" binding:"required"`
+
+	// TargetURL is the HTTP endpoint where webhook payloads will be delivered
+	// Must be a valid, accessible HTTP/HTTPS URL controlled by the subscriber
+	TargetURL string `json:"target_url" binding:"required"`
+
+	// SubscribedEvent specifies which event type should trigger webhook delivery
+	// Filters events to only those matching this subscription
+	SubscribedEvent string `json:"subscribed_event" binding:"required"`
+
+	// Type determines the security model and authentication requirements
+	// Affects what security credentials are generated and required for verification
+	Type WebhookType `json:"type" binding:"required"`
 }
 
 // SendEventRequest represents the request to send a webhook event
+// Used to broadcast events to all matching webhook subscriptions
 type SendEventRequest struct {
-	TenantID string      `json:"tenant_id" binding:"required"`
-	Event    string      `json:"event" binding:"required"`
-	Source   string      `json:"source" binding:"required"`
-	Payload  interface{} `json:"payload" binding:"required"`
+	// TenantID identifies the tenant/organization generating the event
+	// Used for isolating events and finding matching subscriptions
+	TenantID string `json:"tenant_id" binding:"required"`
+
+	// Event specifies the type of event being sent
+	// Must match the SubscribedEvent in webhook subscriptions to trigger delivery
+	Event string `json:"event" binding:"required"`
+
+	// Source identifies the system or service that generated this event
+	// Provides context about the event origin for subscribers
+	Source string `json:"source" binding:"required"`
+
+	// Payload contains the event data to be delivered to webhook endpoints
+	// Can be any JSON-serializable data structure
+	Payload interface{} `json:"payload" binding:"required"`
 }
 
-// Response DTOs
+// Response DTOs - Data Transfer Objects for API responses
 
 // GenerateWebhookResponse represents the response after generating a webhook
+// Contains all information needed for the client to use the new webhook
 type GenerateWebhookResponse struct {
-	WebhookURL  string      `json:"webhook_url"`
-	SecretToken string      `json:"secret_token"`
-	JWTToken    *string     `json:"jwt_token,omitempty"` // For private webhooks
-	Type        WebhookType `json:"type"`
-	WebhookID   uuid.UUID   `json:"webhook_id"`
+	// WebhookURL is the endpoint where the webhook will receive events
+	// This URL should be registered with external services for event delivery
+	WebhookURL string `json:"webhook_url"`
+
+	// SecretToken is the HMAC secret for verifying webhook authenticity
+	// Used to generate and verify X-Shavix-Signature headers
+	SecretToken string `json:"secret_token"`
+
+	// JWTToken contains the JWT for private webhook authentication
+	// Only present for private webhooks, used in Authorization headers
+	JWTToken *string `json:"jwt_token,omitempty"`
+
+	// Type indicates the security model of this webhook
+	// Determines which authentication methods are required
+	Type WebhookType `json:"type"`
+
+	// WebhookID is the unique identifier for this webhook subscription
+	// Used for management operations and webhook identification
+	WebhookID uuid.UUID `json:"webhook_id"`
 }
 
 // WebhookListResponse represents the response for listing webhooks
+// Provides paginated results with metadata for webhook management interfaces
 type WebhookListResponse struct {
+	// Webhooks contains the array of webhook subscriptions for the current page
+	// Each entry includes configuration and status information
 	Webhooks []WebhookSubscription `json:"webhooks"`
-	Total    int64                 `json:"total"`
-	Page     int                   `json:"page"`
-	Limit    int                   `json:"limit"`
+
+	// Total is the total number of webhooks available (across all pages)
+	// Used for pagination controls and result counting
+	Total int64 `json:"total"`
+
+	// Page is the current page number (1-based)
+	// Indicates which page of results is being returned
+	Page int `json:"page"`
+
+	// Limit is the maximum number of results per page
+	// Indicates the page size used for this request
+	Limit int `json:"limit"`
 }
 
 // Webhook payload sent to external endpoints
 
 // WebhookPayload represents the payload sent to webhook endpoints
+// This is the standardized format delivered to all webhook subscribers
 type WebhookPayload struct {
-	Event     string      `json:"event"`
-	Source    string      `json:"source"`
-	Timestamp string      `json:"timestamp"`
-	Payload   interface{} `json:"payload"`
-	EventID   uuid.UUID   `json:"event_id"`
+	// Event specifies the type of event that occurred
+	// Matches the event name used in webhook subscriptions
+	Event string `json:"event"`
+
+	// Source identifies the system or service that generated this event
+	// Provides context about the event origin for processing
+	Source string `json:"source"`
+
+	// Timestamp is the RFC3339-formatted time when the event occurred
+	// Used for ordering events and detecting replay attacks
+	Timestamp string `json:"timestamp"`
+
+	// Payload contains the actual event data
+	// Structure varies based on the event type and source system
+	Payload interface{} `json:"payload"`
+
+	// EventID is the unique identifier for this specific event
+	// Used for deduplication and event tracking across systems
+	EventID uuid.UUID `json:"event_id"`
 }
 
 // Common response types
 
 // ErrorResponse represents an error response
+// Standardized error format for consistent API error handling
 type ErrorResponse struct {
-	Error   string `json:"error"`
+	// Error is a machine-readable error code or identifier
+	// Used for programmatic error handling and categorization
+	Error string `json:"error"`
+
+	// Message is a human-readable description of the error
+	// Provides additional context and details for debugging
 	Message string `json:"message,omitempty"`
-	Code    int    `json:"code,omitempty"`
+
+	// Code is the HTTP status code associated with this error
+	// Redundant with HTTP response code but useful for client-side handling
+	Code int `json:"code,omitempty"`
 }
 
 // SuccessResponse represents a success response
+// Generic success format for operations that don't return specific data
 type SuccessResponse struct {
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	// Message is a human-readable success confirmation
+	// Provides feedback about the completed operation
+	Message string `json:"message"`
+
+	// Data contains optional additional information about the success
+	// Structure varies based on the operation performed
+	Data interface{} `json:"data,omitempty"`
 }
 
 // HealthResponse represents health check response
+// Provides system status information for monitoring and load balancing
 type HealthResponse struct {
-	Status    string `json:"status"`
-	Service   string `json:"service"`
-	Version   string `json:"version"`
+	// Status indicates the overall health of the service
+	// Common values: "healthy", "degraded", "unhealthy"
+	Status string `json:"status"`
+
+	// Service is the name identifier of this service
+	// Used for identifying the service in multi-service environments
+	Service string `json:"service"`
+
+	// Version is the current version of the service
+	// Useful for deployment tracking and compatibility checks
+	Version string `json:"version"`
+
+	// Timestamp is the RFC3339-formatted time when the health check was performed
+	// Indicates the freshness of the health status
 	Timestamp string `json:"timestamp"`
 }
 

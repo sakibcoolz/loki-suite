@@ -20,12 +20,58 @@ import (
 )
 
 // WebhookService defines the interface for webhook business logic
+// This interface provides methods for managing webhook subscriptions, sending events,
+// and handling webhook security verification
 type WebhookService interface {
+	// GenerateWebhook creates a new webhook subscription and returns the webhook URL
+	// Parameters:
+	//   - req: Contains webhook configuration including tenant ID, app name, event type, and webhook type
+	// Returns:
+	//   - GenerateWebhookResponse: Contains the generated webhook URL, security tokens, and webhook ID
+	//   - error: If webhook creation fails due to validation or database errors
 	GenerateWebhook(req *models.GenerateWebhookRequest) (*models.GenerateWebhookResponse, error)
+
+	// SubscribeWebhook creates a webhook subscription with a custom target URL
+	// Parameters:
+	//   - req: Contains subscription details including target URL, tenant ID, and event filters
+	// Returns:
+	//   - GenerateWebhookResponse: Contains security credentials and webhook configuration
+	//   - error: If subscription creation fails
 	SubscribeWebhook(req *models.SubscribeWebhookRequest) (*models.GenerateWebhookResponse, error)
+
+	// SendEvent broadcasts an event to all matching webhook subscriptions
+	// Parameters:
+	//   - req: Contains event data, tenant ID, event name, source, and payload
+	// Returns:
+	//   - EventProcessingResult: Summary of delivery results including success/failure counts
+	//   - error: If event processing fails
 	SendEvent(req *models.SendEventRequest) (*models.EventProcessingResult, error)
+
+	// VerifyWebhook validates the authenticity and authorization of incoming webhook requests
+	// Parameters:
+	//   - webhookID: UUID of the webhook subscription
+	//   - payload: Raw request body bytes for signature verification
+	//   - signature: HMAC signature from request headers
+	//   - timestamp: Request timestamp for replay attack prevention
+	//   - authHeader: Authorization header containing JWT token (for private webhooks)
+	// Returns:
+	//   - error: If verification fails due to invalid signature, expired timestamp, or unauthorized access
 	VerifyWebhook(webhookID uuid.UUID, payload []byte, signature, timestamp, authHeader string) error
+
+	// ListWebhooks retrieves paginated webhook subscriptions for a tenant
+	// Parameters:
+	//   - tenantID: Filter webhooks by tenant identifier
+	//   - page: Page number for pagination (1-based)
+	//   - limit: Maximum number of results per page (1-100, default 10)
+	// Returns:
+	//   - WebhookListResponse: Contains webhooks array, total count, and pagination info
+	//   - error: If database query fails
 	ListWebhooks(tenantID string, page, limit int) (*models.WebhookListResponse, error)
+
+	// SetChainService injects the execution chain service dependency
+	// This is used to avoid circular dependencies between webhook and chain services
+	// Parameters:
+	//   - chainService: The execution chain service instance for triggering workflows
 	SetChainService(chainService ExecutionChainService)
 }
 
@@ -38,7 +84,17 @@ type webhookService struct {
 	chainService ExecutionChainService
 }
 
-// NewWebhookService creates a new webhook service
+// NewWebhookService creates a new webhook service instance with required dependencies
+// This constructor initializes the service with repository, security service, and configuration
+// Parameters:
+//   - repo: WebhookRepository for database operations (subscriptions, events)
+//   - securitySvc: SecurityService for generating tokens, signatures, and verification
+//   - cfg: Application configuration containing webhook and security settings
+//
+// Returns:
+//   - WebhookService: Configured service instance ready for use
+//
+// Note: The execution chain service is set separately via SetChainService to avoid circular dependencies
 func NewWebhookService(
 	repo repository.WebhookRepository,
 	securitySvc *security.SecurityService,
@@ -56,10 +112,29 @@ func NewWebhookService(
 }
 
 // SetChainService sets the execution chain service (for avoiding circular dependencies)
+// This method is called after service initialization to inject the chain service dependency
+// Parameters:
+//   - chainService: ExecutionChainService instance for triggering workflow executions
+//
+// Purpose: Enables webhook events to automatically trigger execution chains when configured
 func (s *webhookService) SetChainService(chainService ExecutionChainService) {
 	s.chainService = chainService
 }
 
+// GenerateWebhook creates a new webhook subscription and generates a unique webhook URL
+// This method handles the complete webhook creation flow including security credential generation
+// Parameters:
+//   - req: GenerateWebhookRequest containing tenant ID, app name, subscribed event, and webhook type
+//
+// Returns:
+//   - GenerateWebhookResponse: Contains webhook URL, security tokens, and webhook ID
+//   - error: If validation fails, security generation fails, or database operation fails
+//
+// Process:
+//  1. Validates webhook type (public/private)
+//  2. Generates unique webhook ID and security credentials
+//  3. Creates subscription record in database
+//  4. Returns webhook URL and security information
 func (s *webhookService) GenerateWebhook(req *models.GenerateWebhookRequest) (*models.GenerateWebhookResponse, error) {
 	// Validate webhook type
 	if req.Type != models.WebhookTypePublic && req.Type != models.WebhookTypePrivate {
@@ -122,6 +197,22 @@ func (s *webhookService) GenerateWebhook(req *models.GenerateWebhookRequest) (*m
 	return response, nil
 }
 
+// SubscribeWebhook creates a webhook subscription with a custom target URL
+// This method allows external services to register their own endpoints for webhook delivery
+// Parameters:
+//   - req: SubscribeWebhookRequest containing target URL, tenant ID, app name, event filter, and type
+//
+// Returns:
+//   - GenerateWebhookResponse: Contains security credentials and webhook configuration
+//   - error: If validation fails, security generation fails, or database operation fails
+//
+// Process:
+//  1. Validates webhook type and target URL
+//  2. Generates webhook ID and security credentials
+//  3. Creates subscription with provided target URL
+//  4. Returns security information for the subscriber
+//
+// Use case: When external services want to receive webhooks at their own endpoints
 func (s *webhookService) SubscribeWebhook(req *models.SubscribeWebhookRequest) (*models.GenerateWebhookResponse, error) {
 	// Validate webhook type
 	if req.Type != models.WebhookTypePublic && req.Type != models.WebhookTypePrivate {
@@ -180,6 +271,23 @@ func (s *webhookService) SubscribeWebhook(req *models.SubscribeWebhookRequest) (
 	return response, nil
 }
 
+// SendEvent broadcasts an event to all matching webhook subscriptions and triggers execution chains
+// This is the core event delivery method that handles the complete webhook notification flow
+// Parameters:
+//   - req: SendEventRequest containing tenant ID, event name, source, and payload data
+//
+// Returns:
+//   - EventProcessingResult: Summary containing event ID, delivery results, and success/failure counts
+//   - error: If event creation fails or critical processing errors occur
+//
+// Process:
+//  1. Finds all active subscriptions matching tenant and event
+//  2. Creates event record in database for tracking
+//  3. Delivers webhook to each subscription with proper security headers
+//  4. Updates event status based on delivery results
+//  5. Triggers any execution chains configured for this event
+//
+// Note: Chain execution failures don't fail the entire operation
 func (s *webhookService) SendEvent(req *models.SendEventRequest) (*models.EventProcessingResult, error) {
 	// Find matching subscriptions
 	subscriptions, err := s.repo.GetActiveSubscriptionsByTenantAndEvent(req.TenantID, req.Event)
@@ -290,6 +398,23 @@ func (s *webhookService) SendEvent(req *models.SendEventRequest) (*models.EventP
 	return result, nil
 }
 
+// sendWebhookToSubscription delivers a webhook payload to a single subscription endpoint
+// This is an internal helper method that handles the HTTP delivery and security headers
+// Parameters:
+//   - subscription: WebhookSubscription containing target URL and security credentials
+//   - payload: JSON-encoded webhook payload to be delivered
+//
+// Returns:
+//   - WebhookDeliveryResult: Contains delivery status, response code, error details, and attempt count
+//
+// Process:
+//  1. Creates HTTP POST request to target URL
+//  2. Adds security headers (Content-Type, User-Agent, HMAC signature, timestamp)
+//  3. Adds JWT authorization for private webhooks
+//  4. Sends request and evaluates response status
+//  5. Logs delivery success/failure with details
+//
+// Security: Includes HMAC signature verification and JWT tokens for private webhooks
 func (s *webhookService) sendWebhookToSubscription(subscription models.WebhookSubscription, payload []byte) models.WebhookDeliveryResult {
 	result := models.WebhookDeliveryResult{
 		WebhookID: subscription.ID,
@@ -353,6 +478,25 @@ func (s *webhookService) sendWebhookToSubscription(subscription models.WebhookSu
 	return result
 }
 
+// VerifyWebhook validates the authenticity and authorization of incoming webhook requests
+// This method provides comprehensive security validation for webhook endpoints
+// Parameters:
+//   - webhookID: UUID identifying the webhook subscription
+//   - payload: Raw request body bytes used for HMAC signature verification
+//   - signature: HMAC signature from X-Shavix-Signature header
+//   - timestamp: Request timestamp from X-Shavix-Timestamp header
+//   - authHeader: Authorization header containing JWT token (required for private webhooks)
+//
+// Returns:
+//   - error: nil if verification succeeds, descriptive error if validation fails
+//
+// Security Checks:
+//  1. Webhook subscription exists and is active
+//  2. HMAC signature matches payload and secret token
+//  3. Timestamp is within acceptable tolerance (prevents replay attacks)
+//  4. JWT token is valid and claims match webhook (for private webhooks only)
+//
+// Use case: Called by webhook receive endpoints to ensure request authenticity
 func (s *webhookService) VerifyWebhook(webhookID uuid.UUID, payload []byte, signature, timestamp, authHeader string) error {
 	// Find webhook subscription
 	subscription, err := s.repo.GetSubscriptionByID(webhookID)
@@ -409,6 +553,24 @@ func (s *webhookService) VerifyWebhook(webhookID uuid.UUID, payload []byte, sign
 	return nil
 }
 
+// ListWebhooks retrieves paginated webhook subscriptions for a specific tenant
+// This method provides filtered and paginated access to webhook subscriptions
+// Parameters:
+//   - tenantID: Tenant identifier to filter subscriptions (required)
+//   - page: Page number for pagination, 1-based (minimum 1, defaults to 1)
+//   - limit: Maximum results per page (range 1-100, defaults to 10)
+//
+// Returns:
+//   - WebhookListResponse: Contains webhooks array, total count, current page, and limit
+//   - error: If database query fails or parameters are invalid
+//
+// Process:
+//  1. Validates and normalizes pagination parameters
+//  2. Calculates offset for database query
+//  3. Retrieves subscriptions with total count
+//  4. Returns structured response with pagination metadata
+//
+// Use case: Management dashboards, webhook administration, and subscription overview
 func (s *webhookService) ListWebhooks(tenantID string, page, limit int) (*models.WebhookListResponse, error) {
 	if page < 1 {
 		page = 1
