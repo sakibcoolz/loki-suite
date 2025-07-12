@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sakibcoolz/loki-suite/internal/models"
-	"github.com/sakibcoolz/loki-suite/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sakibcoolz/loki-suite/internal/models"
+	"github.com/sakibcoolz/loki-suite/internal/service"
 	"go.uber.org/zap"
 )
 
