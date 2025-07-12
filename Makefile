@@ -17,15 +17,15 @@ help:
 
 # Build the application
 build:
-	go build -o bin/loki-suite .
+	GOPRIVATE='github.com/sakibcoolz/*' GONOPROXY='github.com/sakibcoolz/*' GONOSUMDB='github.com/sakibcoolz/*' go build -o bin/loki-suite ./cmd
 
 # Run the application
 run:
-	go run .
+	GOPRIVATE='github.com/sakibcoolz/*' GONOPROXY='github.com/sakibcoolz/*' GONOSUMDB='github.com/sakibcoolz/*' go run ./cmd
 
 # Run tests
 test:
-	go test -v ./...
+	GOPRIVATE='github.com/sakibcoolz/*' GONOPROXY='github.com/sakibcoolz/*' GONOSUMDB='github.com/sakibcoolz/*' go test -v ./...
 
 # Clean build artifacts
 clean:
@@ -34,7 +34,7 @@ clean:
 
 # Build Docker image
 docker-build:
-	docker build -t loki-suite:latest .
+	docker build -t github.com/sakibcoolz/loki-suite:latest .
 
 # Run with Docker Compose
 docker-run:
@@ -46,8 +46,8 @@ docker-stop:
 
 # Download dependencies
 deps:
-	go mod download
-	go mod tidy
+	GOPRIVATE='github.com/sakibcoolz/*' GONOPROXY='github.com/sakibcoolz/*' GONOSUMDB='github.com/sakibcoolz/*' go mod download
+	GOPRIVATE='github.com/sakibcoolz/*' GONOPROXY='github.com/sakibcoolz/*' GONOSUMDB='github.com/sakibcoolz/*' go mod tidy
 
 # Format code
 fmt:

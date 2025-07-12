@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"loki-suite/internal/config"
-	"loki-suite/internal/models"
-	"loki-suite/internal/repository"
-	"loki-suite/pkg/logger"
-	"loki-suite/pkg/security"
+	"github.com/sakibcoolz/zcornor/pkg/config"
+	"github.com/sakibcoolz/zcornor/pkg/security"
+
+	"github.com/sakibcoolz/loki-suite/internal/models"
+	"github.com/sakibcoolz/loki-suite/internal/repository"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -49,7 +49,7 @@ func NewWebhookService(
 		securitySvc: securitySvc,
 		config:      cfg,
 		httpClient: &http.Client{
-			Timeout: time.Duration(cfg.Webhook.TimeoutSeconds) * time.Second,
+			Timeout: 30 * time.Second, // Default timeout
 		},
 		chainService: nil, // Will be set via SetChainService
 	}
@@ -77,7 +77,7 @@ func (s *webhookService) GenerateWebhook(req *models.GenerateWebhookRequest) (*m
 	}
 
 	// Create webhook URL
-	webhookURL := fmt.Sprintf("%s/api/webhooks/receive/%s", s.config.Webhook.BaseURL, webhookID.String())
+	webhookURL := fmt.Sprintf("http://localhost:8080/api/webhooks/receive/%s", webhookID.String())
 
 	// Create subscription
 	subscription := &models.WebhookSubscription{
@@ -307,7 +307,7 @@ func (s *webhookService) sendWebhookToSubscription(subscription models.WebhookSu
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "loki-suite/2.0")
+	req.Header.Set("User-Agent", "github.com/sakibcoolz/loki-suite/2.0")
 
 	// Generate HMAC signature
 	signature := s.securitySvc.GenerateHMACSignature(payload, subscription.SecretToken)
@@ -375,7 +375,7 @@ func (s *webhookService) VerifyWebhook(webhookID uuid.UUID, payload []byte, sign
 	}
 
 	// Verify timestamp
-	if !s.securitySvc.ValidateTimestamp(timestamp, s.config.Security.TimestampToleranceMinutes) {
+	if !s.securitySvc.ValidateTimestamp(timestamp, 5) { // Default 5 minute tolerance
 		return fmt.Errorf("timestamp is outside allowed tolerance")
 	}
 

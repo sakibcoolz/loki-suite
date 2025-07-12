@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"loki-suite/internal/models"
+	"github.com/sakibcoolz/loki-suite/internal/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

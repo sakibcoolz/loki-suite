@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"loki-suite/internal/controller"
-	"loki-suite/internal/middleware"
+	"github.com/sakibcoolz/loki-suite/internal/controller"
+	"github.com/sakibcoolz/loki-suite/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )

@@ -4,14 +4,22 @@ import (
 	"net/http"
 	"strconv"
 
-	"loki-suite/internal/models"
-	"loki-suite/internal/service"
-	"loki-suite/pkg/logger"
-
+	"github.com/sakibcoolz/loki-suite/internal/models"
+	"github.com/sakibcoolz/loki-suite/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+var logger *zap.Logger
+
+func init() {
+	var err error
+	logger, err = zap.NewProduction()
+	if err != nil {
+		panic("Failed to initialize logger: " + err.Error())
+	}
+}
 
 // ExecutionChainController handles HTTP requests for execution chains
 type ExecutionChainController struct {

@@ -3,11 +3,19 @@ package middleware
 import (
 	"time"
 
-	"loki-suite/pkg/logger"
-
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+var logger *zap.Logger
+
+func init() {
+	var err error
+	logger, err = zap.NewProduction()
+	if err != nil {
+		panic("Failed to initialize logger: " + err.Error())
+	}
+}
 
 // RequestLogger logs HTTP requests using Zap logger
 func RequestLogger() gin.HandlerFunc {

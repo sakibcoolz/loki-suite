@@ -5,10 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"loki-suite/internal/models"
-	"loki-suite/internal/service"
-	"loki-suite/pkg/logger"
-
+	"github.com/sakibcoolz/loki-suite/internal/models"
+	"github.com/sakibcoolz/loki-suite/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -267,7 +265,7 @@ func (wc *WebhookController) ListWebhooks(c *gin.Context) {
 func (wc *WebhookController) HealthCheck(c *gin.Context) {
 	response := models.HealthResponse{
 		Status:    "healthy",
-		Service:   "loki-suite",
+		Service:   "github.com/sakibcoolz/loki-suite",
 		Version:   "2.0.0",
 		Timestamp: time.Now().Format(time.RFC3339),
 	}

@@ -9,15 +9,24 @@ import (
 	"net/http"
 	"time"
 
-	"loki-suite/internal/config"
-	"loki-suite/internal/models"
-	"loki-suite/internal/repository"
-	"loki-suite/pkg/logger"
-	"loki-suite/pkg/security"
+	"github.com/sakibcoolz/loki-suite/internal/models"
+	"github.com/sakibcoolz/loki-suite/internal/repository"
+	"github.com/sakibcoolz/zcornor/pkg/config"
+	"github.com/sakibcoolz/zcornor/pkg/security"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+var logger *zap.Logger
+
+func init() {
+	var err error
+	logger, err = zap.NewProduction()
+	if err != nil {
+		panic("Failed to initialize logger: " + err.Error())
+	}
+}
 
 // ExecutionChainService handles execution chain business logic
 type ExecutionChainService interface {
@@ -57,7 +66,7 @@ func NewExecutionChainService(
 		security:    security,
 		config:      config,
 		httpClient: &http.Client{
-			Timeout: time.Duration(config.Webhook.TimeoutSeconds) * time.Second,
+			Timeout: 30 * time.Second, // Default timeout
 		},
 	}
 }
@@ -501,7 +510,7 @@ func (s *executionChainService) sendStepWebhook(ctx context.Context, step *model
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "loki-suite-execution-chain/2.0")
+	req.Header.Set("User-Agent", "github.com/sakibcoolz/loki-suite-execution-chain/2.0")
 
 	// Generate HMAC signature
 	signature := s.security.GenerateHMACSignature(payloadBytes, step.Webhook.SecretToken)

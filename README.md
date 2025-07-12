@@ -95,7 +95,7 @@ The Loki Suite Webhook Service is a robust solution for managing webhooks at sca
 
 ```bash
 git clone <repository-url>
-cd loki-suite
+cd github.com/sakibcoolz/loki-suite
 cp .env.example .env
 ```
 
@@ -145,8 +145,8 @@ createdb loki_suite
 
 ```bash
 # Build and run
-go build -o loki-suite
-./loki-suite
+go build -o github.com/sakibcoolz/loki-suite
+./github.com/sakibcoolz/loki-suite
 
 # Or run directly
 go run main.go
@@ -163,7 +163,7 @@ curl http://localhost:8080/health
 # Expected response:
 # {
 #   "status": "healthy",
-#   "service": "loki-suite-webhook-service",
+#   "service": "github.com/sakibcoolz/loki-suite-webhook-service",
 #   "version": "2.0.0",
 #   "timestamp": "2024-01-15T10:30:00Z"
 # }
@@ -375,7 +375,7 @@ docker-compose down
 
 ```bash
 # Build image
-docker build -t loki-suite:latest .
+docker build -t github.com/sakibcoolz/loki-suite:latest .
 
 # Run with Docker Compose
 docker-compose up -d
@@ -477,8 +477,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/loki-suite.git
-   cd loki-suite
+   git clone https://github.com/your-username/github.com/sakibcoolz/loki-suite.git
+   cd github.com/sakibcoolz/loki-suite
    ```
 
 2. **Set up environment variables**
@@ -523,7 +523,7 @@ POST /api/webhooks/generate
 **Response:**
 ```json
 {
-  "webhook_url": "https://loki-suite.shavix.com/api/webhooks/receive/550e8400-e29b-41d4-a716-446655440000",
+  "webhook_url": "https://github.com/sakibcoolz/loki-suite.shavix.com/api/webhooks/receive/550e8400-e29b-41d4-a716-446655440000",
   "secret_token": "a1b2c3d4e5f6...",
   "type": "public",
   "webhook_id": "550e8400-e29b-41d4-a716-446655440000"
@@ -548,7 +548,7 @@ POST /api/webhooks/generate
 **Response:**
 ```json
 {
-  "webhook_url": "https://loki-suite.shavix.com/api/webhooks/receive/660e8400-e29b-41d4-a716-446655440001",
+  "webhook_url": "https://github.com/sakibcoolz/loki-suite.shavix.com/api/webhooks/receive/660e8400-e29b-41d4-a716-446655440001",
   "secret_token": "b2c3d4e5f6...",
   "jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "type": "private",
@@ -684,9 +684,9 @@ LOG_LEVEL=info
 LOG_FORMAT=json
 
 # Service Configuration
-SERVICE_NAME=loki-suite
+SERVICE_NAME=github.com/sakibcoolz/loki-suite
 SERVICE_VERSION=2.0.0
-BASE_WEBHOOK_URL=https://loki-suite.shavix.com
+BASE_WEBHOOK_URL=https://github.com/sakibcoolz/loki-suite.shavix.com
 ```
 
 ## 🗄️ Database Schema
@@ -726,7 +726,7 @@ CREATE TABLE webhook_events (
 ### Project Structure
 
 ```
-loki-suite/
+github.com/sakibcoolz/loki-suite/
 ├── cmd/                    # Application entry points
 ├── internal/               # Private application code
 │   ├── config/            # Configuration management
@@ -763,20 +763,20 @@ go test -v ./pkg/security -run TestGenerateJWTToken
 
 ```bash
 # Build for current platform
-go build -o loki-suite .
+go build -o github.com/sakibcoolz/loki-suite .
 
 # Build for Linux (production)
-GOOS=linux GOARCH=amd64 go build -o loki-suite .
+GOOS=linux GOARCH=amd64 go build -o github.com/sakibcoolz/loki-suite .
 ```
 
 ### Docker Build
 
 ```bash
 # Build image
-docker build -t loki-suite:2.0.0 .
+docker build -t github.com/sakibcoolz/loki-suite:2.0.0 .
 
 # Run container
-docker run -p 8080:8080 --env-file .env loki-suite:2.0.0
+docker run -p 8080:8080 --env-file .env github.com/sakibcoolz/loki-suite:2.0.0
 ```
 
 ## 🚀 Deployment
@@ -797,24 +797,24 @@ docker-compose -f docker-compose.prod.yml up -d
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: loki-suite-v2
+  name: github.com/sakibcoolz/loki-suite-v2
   labels:
-    app: loki-suite
+    app: github.com/sakibcoolz/loki-suite
     version: v2.0.0
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: loki-suite
+      app: github.com/sakibcoolz/loki-suite
   template:
     metadata:
       labels:
-        app: loki-suite
+        app: github.com/sakibcoolz/loki-suite
         version: v2.0.0
     spec:
       containers:
-      - name: loki-suite
-        image: loki-suite:2.0.0
+      - name: github.com/sakibcoolz/loki-suite
+        image: github.com/sakibcoolz/loki-suite:2.0.0
         ports:
         - containerPort: 8080
         env:
@@ -826,7 +826,7 @@ spec:
           value: "json"
         envFrom:
         - secretRef:
-            name: loki-suite-secrets
+            name: github.com/sakibcoolz/loki-suite-secrets
         livenessProbe:
           httpGet:
             path: /health
@@ -860,7 +860,7 @@ GET /health
 ```json
 {
   "status": "healthy",
-  "service": "loki-suite",
+  "service": "github.com/sakibcoolz/loki-suite",
   "version": "2.0.0",
   "timestamp": "2025-07-11T10:30:00Z"
 }
@@ -927,9 +927,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - 📧 **Email**: support@shavix.com
-- 🐛 **Issues**: [GitHub Issues](https://github.com/your-username/loki-suite/issues)
-- 📖 **Documentation**: [Wiki](https://github.com/your-username/loki-suite/wiki)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/your-username/loki-suite/discussions)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/your-username/github.com/sakibcoolz/loki-suite/issues)
+- 📖 **Documentation**: [Wiki](https://github.com/your-username/github.com/sakibcoolz/loki-suite/wiki)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/your-username/github.com/sakibcoolz/loki-suite/discussions)
 
 ---
 
@@ -961,7 +961,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 1. **Clone the repository**
 ```bash
 git clone <repository-url>
-cd loki-suite
+cd github.com/sakibcoolz/loki-suite
 ```
 
 2. **Install dependencies**
@@ -1013,7 +1013,7 @@ curl -X POST http://localhost:8080/api/webhooks/generate \
 **Response:**
 ```json
 {
-  "webhook_url": "https://loki-suite.shavix.com/api/webhooks/receive/123e4567-e89b-12d3-a456-426614174000",
+  "webhook_url": "https://github.com/sakibcoolz/loki-suite.shavix.com/api/webhooks/receive/123e4567-e89b-12d3-a456-426614174000",
   "secret_token": "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890",
   "auth_token": "1a2b3c4d5e6f7890",
   "type": "private",
@@ -1191,7 +1191,7 @@ PORT=8080
 GIN_MODE=release
 
 # Webhook
-WEBHOOK_BASE_URL=https://loki-suite.shavix.com
+WEBHOOK_BASE_URL=https://github.com/sakibcoolz/loki-suite.shavix.com
 WEBHOOK_TIMEOUT_SECONDS=30
 WEBHOOK_MAX_RETRIES=3
 
@@ -1204,13 +1204,13 @@ TIMESTAMP_TOLERANCE_MINUTES=5
 ### Build and Run
 ```bash
 # Build image
-docker build -t loki-suite .
+docker build -t github.com/sakibcoolz/loki-suite .
 
 # Run with Docker Compose
 docker-compose up -d
 
 # Check logs
-docker-compose logs -f loki-suite
+docker-compose logs -f github.com/sakibcoolz/loki-suite
 ```
 
 ### Production Deployment
@@ -1268,7 +1268,7 @@ golangci-lint run
 
 ### Project Structure
 ```
-loki-suite/
+github.com/sakibcoolz/loki-suite/
 ├── main.go           # Application entry point
 ├── models.go         # Database models and structs  
 ├── handlers.go       # HTTP handlers
