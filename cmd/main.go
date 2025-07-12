@@ -8,6 +8,7 @@ import (
 
 	"github.com/sakibcoolz/loki-suite/internal/controller"
 	"github.com/sakibcoolz/loki-suite/internal/handler"
+	"github.com/sakibcoolz/loki-suite/internal/models"
 	"github.com/sakibcoolz/loki-suite/internal/repository"
 	"github.com/sakibcoolz/loki-suite/internal/service"
 	"github.com/sakibcoolz/zcornor/pkg/config"
@@ -37,7 +38,19 @@ func main() {
 		log.FatalSimple("Failed to connect to database")
 	}
 
-	db.AutoMigrate()
+	// Migrate database schema
+	log.Info(ctx, "Starting database migration...")
+	if err := db.AutoMigrate(
+		&models.WebhookSubscription{},
+		&models.WebhookEvent{},
+		&models.ExecutionChain{},
+		&models.ExecutionChainStep{},
+		&models.ExecutionChainRun{},
+		&models.ExecutionChainStepRun{},
+	); err != nil {
+		log.Fatal(ctx, "Failed to migrate database schema", zap.Error(err))
+	}
+	log.Info(ctx, "Database migration completed successfully")
 
 	// Initialize security service
 	securitySvc := security.NewSecurityService(
@@ -82,7 +95,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logger.Info(ctx, "Shutting down server...")
+	logger.InfoSimple("Shutting down server...")
 
 	// Close database connection
 	sqlDB, err := db.DB()
