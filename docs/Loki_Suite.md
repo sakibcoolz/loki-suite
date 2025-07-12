@@ -126,6 +126,8 @@ Client Request → Handler → Controller → Service → Repository → Databas
 - Customer satisfaction improved through automated notifications
 - Order processing time reduced from hours to minutes
 
+![alt text](ecomm_ex1.png)
+
 ```plantuml
 @startuml E-commerce Order Processing
 participant Customer
@@ -210,6 +212,8 @@ curl -X POST http://localhost:8080/api/execution-chains \
 - Automatic waitlist management for out-of-stock items
 - Real-time analytics and reporting
 
+![alt text](ecomm_ex2.png)
+
 ```plantuml
 @startuml Flash Sale Management
 participant "Flash Sale App" as FSA
@@ -259,6 +263,8 @@ deactivate LS
 - Automatic inventory restoration prevents loss
 - Improved customer experience with instant refund notifications
 - Automated refund fraud detection
+
+![alt text](ecomm_ex3.png)
 
 ```plantuml
 @startuml Return Processing
@@ -312,6 +318,8 @@ RP --> Customer: Return status update
 - Automated team collaboration setup
 - Personalized feature recommendations based on user role
 
+![alt text](user_ex1.png)
+
 ```plantuml
 @startuml SaaS User Onboarding
 participant "Registration Form" as RF
@@ -362,6 +370,8 @@ RF --> RF: Redirect to dashboard
 - Manager notification for team integration
 - Complete audit trail for HR compliance
 
+![alt text](user_ex2.png)
+
 ```plantuml
 @startuml Enterprise Employee Onboarding
 participant "HR System" as HR
@@ -409,6 +419,8 @@ deactivate LS
 - Personalized user experience from first login
 - Automated feature discovery based on user behavior
 - Optimized push notification engagement
+
+![alt text](user_ex3.png)
 
 ```plantuml
 @startuml Mobile App Onboarding
@@ -461,6 +473,8 @@ MA -> MA: Display personalized interface
 - Consistent social media promotion across all channels
 - Content performance tracking and optimization
 
+![alt text](content_ex1.png)
+
 ```plantuml
 @startuml Blog Publishing Pipeline
 participant "CMS" as CMS
@@ -510,6 +524,8 @@ CMS -> CMS: Publish content live
 - AI-generated subtitles improve accessibility
 - Automated distribution increases content reach
 
+![alt text](content_ex2.png)
+
 ```plantuml
 @startuml Video Processing Pipeline
 participant "Upload Portal" as UP
@@ -556,6 +572,8 @@ deactivate LS
 - Consistent brand messaging across all channels
 - Automated A/B testing for content optimization
 - Real-time campaign performance tracking
+
+![alt text](content_ex3.png)
 
 ```plantuml
 @startuml Marketing Campaign Automation
@@ -604,6 +622,8 @@ deactivate LS
 - PCI DSS compliance automated
 - Real-time risk assessment reduces chargebacks by 75%
 - Automated regulatory reporting
+
+![alt text](finn_ex1.png)
 
 ```plantuml
 @startuml Payment Processing
@@ -659,6 +679,8 @@ deactivate LS
 - Automated payment reminders reduce overdue accounts
 - Real-time cash flow visibility
 
+![alt text](finn_ex2.png)
+
 ```plantuml
 @startuml Automated Invoicing
 participant "Billing System" as BS
@@ -710,6 +732,8 @@ CS -> CS: Escalate to collections
 - Real-time exchange rate optimization
 - Automated compliance with international regulations
 
+![alt text](finn_ex3.png)
+
 ```plantuml
 @startuml Multi-Currency Processing
 participant "International Checkout" as IC
@@ -758,6 +782,8 @@ deactivate LS
 - Unified API response format across all services
 - Automatic retry and failover handling
 - Centralized rate limiting and monitoring
+
+![alt text](api_ex1.png)
 
 ```plantuml
 @startuml API Integration Hub
@@ -810,6 +836,8 @@ deactivate LS
 - Automatic transaction rollback on failures
 - Service health monitoring and auto-recovery
 - Distributed tracing for debugging
+
+![alt text](api_ex2.png)
 
 ```plantuml
 @startuml Microservices Orchestration
@@ -872,6 +900,8 @@ deactivate LS
 - Data validation ensures integrity
 - Audit trail for compliance
 
+![alt text](api_ex3.png)
+
 ```plantuml
 @startuml Data Synchronization
 participant "Source System" as SS
@@ -930,6 +960,8 @@ deactivate LS
 - Load balancing handles 100,000+ events/second
 - Geographic disaster recovery
 
+![alt text](sd_ex1.png)
+
 ```plantuml
 @startuml High-Availability System
 participant "Load Balancer" as LB
@@ -981,6 +1013,8 @@ LB -> LSS: Route to secondary instance
 - Intelligent routing optimizes delivery performance
 - Automatic retry with exponential backoff
 - Real-time delivery analytics
+
+![alt text](sd_ex2.png)
 
 ```plantuml
 @startuml Scalable Webhook Delivery
@@ -1040,6 +1074,8 @@ RS -> DQ: Requeue failed deliveries
 - Fine-grained role-based access control
 - Comprehensive audit trail for compliance
 - Zero-trust security model
+
+![alt text](sd_ex3.png)
 
 ```plantuml
 @startuml Multi-Tenant Security
