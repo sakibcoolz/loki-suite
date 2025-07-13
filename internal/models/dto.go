@@ -8,6 +8,12 @@ import (
 
 // Request DTOs - Data Transfer Objects for incoming API requests
 
+// RetryPolicy defines the retry behavior for webhook deliveries
+type RetryPolicy struct {
+	MaxRetries        int `json:"max_retries,omitempty"`
+	RetryDelaySeconds int `json:"retry_delay_seconds,omitempty"`
+}
+
 // GenerateWebhookRequest represents the request to generate a new webhook subscription
 // Used when creating a new webhook endpoint that will receive event notifications
 type GenerateWebhookRequest struct {
@@ -26,6 +32,17 @@ type GenerateWebhookRequest struct {
 	// Type determines the security model (public with HMAC or private with HMAC+JWT)
 	// Affects authentication requirements and security credentials generated
 	Type WebhookType `json:"type" binding:"required"`
+
+	// retry policy defines how failed deliveries should be retried
+	// Allows subscribers to specify retry behavior for failed webhook deliveries
+	RetryPolicy *RetryPolicy `json:"retry_policy,omitempty"`
+
+	// QueryParams is an optional map of query parameters to include in webhook requests
+	// Allows subscribers to specify additional parameters for the webhook URL
+	QueryParams map[string]string `json:"query_params,omitempty"`
+
+	// Payload is an optional field for additional data to be sent with the webhook
+	Payload interface{} `json:"payload,omitempty"`
 }
 
 // SubscribeWebhookRequest represents the manual subscription request
@@ -50,6 +67,38 @@ type SubscribeWebhookRequest struct {
 	// Type determines the security model and authentication requirements
 	// Affects what security credentials are generated and required for verification
 	Type WebhookType `json:"type" binding:"required"`
+
+	// SecretToken is the HMAC secret used for verifying webhook authenticity
+	// Required for public webhooks to generate X-Shavix-Signature headers
+	SecretToken *string `json:"secret_token,omitempty"`
+
+	// JWTToken is the JWT used for private webhook authentication
+	// Only required for private webhooks, used in Authorization headers
+	JWTToken *string `json:"jwt_token,omitempty"`
+
+	// Description is an optional human-readable description of this subscription
+	// Provides additional context about the purpose of this webhook
+	Description *string `json:"description,omitempty"`
+
+	// IsActive indicates whether this subscription is currently active
+	// If false, the webhook will not receive events until reactivated
+	IsActive *bool `json:"is_active,omitempty"`
+
+	// Headers is an optional map of custom headers to include in webhook requests
+	// Allows subscribers to specify additional metadata or authentication headers
+	Headers map[string]string `json:"headers,omitempty"`
+
+	// RetryPolicy defines how failed deliveries should be retried
+	// Allows subscribers to specify retry behavior for failed webhook deliveries
+	RetryPolicy *RetryPolicy `json:"retry_policy,omitempty"`
+
+	// QueryParams is an optional map of query parameters to include in webhook requests
+	// Allows subscribers to specify additional parameters for the webhook URL
+	QueryParams map[string]string `json:"query_params,omitempty"`
+
+	// IsPublic indicates whether this subscription is public or private
+	// Public subscriptions use HMAC for verification, private use HMAC+JWT
+	IsPublic bool `json:"is_public" binding:"required"`
 }
 
 // SendEventRequest represents the request to send a webhook event
@@ -96,6 +145,16 @@ type GenerateWebhookResponse struct {
 	// WebhookID is the unique identifier for this webhook subscription
 	// Used for management operations and webhook identification
 	WebhookID uuid.UUID `json:"webhook_id"`
+
+	// Payload is an optional field for additional data to be sent with the webhook
+	Payload interface{} `json:"payload,omitempty"`
+
+	// QueryParams is an optional map of query parameters included in webhook requests
+	QueryParams map[string]string `json:"query_params,omitempty"`
+
+	// RetryPolicy defines how failed deliveries should be retried
+	// Allows subscribers to specify retry behavior for failed webhook deliveries
+	RetryPolicy *RetryPolicy `json:"retry_policy,omitempty"`
 }
 
 // WebhookListResponse represents the response for listing webhooks

@@ -79,6 +79,10 @@ type WebhookSubscription struct {
 	// Used for organizing and filtering webhooks by source application
 	AppName string `json:"app_name" gorm:"not null"`
 
+	// Description provides additional context about this webhook's purpose
+	// Optional field for documenting the webhook's business logic and usage
+	Description *string `json:"description"`
+
 	// TargetURL is the HTTP endpoint where webhook payloads will be delivered
 	// Must be a valid HTTP/HTTPS URL accessible by the webhook service
 	TargetURL string `json:"target_url" gorm:"not null"`
@@ -102,6 +106,26 @@ type WebhookSubscription struct {
 	// RetryCount tracks the number of failed delivery attempts
 	// Used for implementing retry policies and delivery statistics
 	RetryCount int `json:"retry_count" gorm:"default:0"`
+
+	// MaxRetries sets the maximum number of retry attempts for failed deliveries
+	// Prevents infinite retry loops and allows control over retry behavior
+	MaxRetries int `json:"max_retries" gorm:"default:3"`
+
+	// RetryDelaySeconds is the delay in seconds before retrying a failed delivery
+	// Allows subscribers to control the backoff strategy for retries
+	RetryDelaySeconds int `json:"retry_delay_seconds" gorm:"default:5"`
+
+	// QueryParams is an optional map of query parameters included in webhook requests
+	// Allows subscribers to specify additional parameters for the webhook URL
+	QueryParams map[string]string `json:"query_params,omitempty" gorm:"type:jsonb"`
+
+	// Headers is an optional map of custom headers to include in webhook requests
+	// Allows subscribers to specify additional metadata or authentication headers
+	Headers map[string]string `json:"headers,omitempty" gorm:"type:jsonb"`
+
+	// Payload contains additional static data to be included with each webhook delivery
+	// Stored as JSONB and merged with event payload when sending webhooks
+	Payload string `json:"payload,omitempty" gorm:"type:jsonb"`
 
 	// IsActive controls whether this webhook should receive events
 	// Allows temporary disabling without deleting the subscription

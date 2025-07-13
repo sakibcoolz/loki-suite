@@ -1,0 +1,14 @@
+with-expecter: true
+dir: "mocks"
+mockname: "Mock{{.InterfaceName}}"
+filename: "{{.MockName}}.go"
+outpkg: mocks
+packages:
+  github.com/sakibcoolz/loki-suite/internal/repository:
+    interfaces:
+      WebhookRepository:
+      ExecutionChainRepository:
+  github.com/sakibcoolz/loki-suite/internal/service:
+    interfaces:
+      WebhookService:
+      ExecutionChainService:

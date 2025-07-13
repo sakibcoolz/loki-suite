@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/sakibcoolz/zcornor/pkg/config"
@@ -164,7 +165,21 @@ func (s *webhookService) GenerateWebhook(req *models.GenerateWebhookRequest) (*m
 		Type:            req.Type,
 		SecretToken:     securityData.SecretToken,
 		JWTToken:        securityData.JWTToken,
+		QueryParams:     req.QueryParams,
 		IsActive:        true,
+	}
+
+	// Set payload if provided
+	if req.Payload != nil {
+		if payloadBytes, err := json.Marshal(req.Payload); err == nil {
+			subscription.Payload = string(payloadBytes)
+		}
+	}
+
+	// Set retry policy if provided
+	if req.RetryPolicy != nil {
+		subscription.MaxRetries = req.RetryPolicy.MaxRetries
+		subscription.RetryDelaySeconds = req.RetryPolicy.RetryDelaySeconds
 	}
 
 	// Save to database
@@ -188,6 +203,9 @@ func (s *webhookService) GenerateWebhook(req *models.GenerateWebhookRequest) (*m
 		SecretToken: securityData.SecretToken,
 		Type:        req.Type,
 		WebhookID:   webhookID,
+		Payload:     req.Payload,
+		QueryParams: req.QueryParams,
+		RetryPolicy: req.RetryPolicy,
 	}
 
 	if securityData.JWTToken != nil {
@@ -239,7 +257,25 @@ func (s *webhookService) SubscribeWebhook(req *models.SubscribeWebhookRequest) (
 		Type:            req.Type,
 		SecretToken:     securityData.SecretToken,
 		JWTToken:        securityData.JWTToken,
+		Headers:         req.Headers,
+		QueryParams:     req.QueryParams,
 		IsActive:        true,
+	}
+
+	// Set description if provided
+	if req.Description != nil {
+		subscription.Description = req.Description
+	}
+
+	// Set active status if provided
+	if req.IsActive != nil {
+		subscription.IsActive = *req.IsActive
+	}
+
+	// Set retry policy if provided
+	if req.RetryPolicy != nil {
+		subscription.MaxRetries = req.RetryPolicy.MaxRetries
+		subscription.RetryDelaySeconds = req.RetryPolicy.RetryDelaySeconds
 	}
 
 	// Save to database
@@ -262,6 +298,8 @@ func (s *webhookService) SubscribeWebhook(req *models.SubscribeWebhookRequest) (
 		SecretToken: securityData.SecretToken,
 		Type:        req.Type,
 		WebhookID:   webhookID,
+		QueryParams: req.QueryParams,
+		RetryPolicy: req.RetryPolicy,
 	}
 
 	if securityData.JWTToken != nil {
@@ -336,7 +374,40 @@ func (s *webhookService) SendEvent(req *models.SendEventRequest) (*models.EventP
 	}
 
 	for i, subscription := range subscriptions {
-		deliveryResult := s.sendWebhookToSubscription(subscription, payloadBytes)
+		// Create subscription-specific payload by merging event payload with subscription payload
+		finalPayload := webhookPayload
+		if subscription.Payload != "" {
+			// Parse subscription payload
+			var subscriptionData map[string]interface{}
+			if err := json.Unmarshal([]byte(subscription.Payload), &subscriptionData); err == nil {
+				// Merge subscription payload with event payload
+				if eventData, ok := finalPayload.Payload.(map[string]interface{}); ok {
+					// Merge maps - subscription payload takes precedence
+					for key, value := range subscriptionData {
+						eventData[key] = value
+					}
+					finalPayload.Payload = eventData
+				} else {
+					// If event payload is not a map, create a new structure
+					finalPayload.Payload = map[string]interface{}{
+						"event_data":        finalPayload.Payload,
+						"subscription_data": subscriptionData,
+					}
+				}
+			}
+		}
+
+		// Serialize the final payload for this subscription
+		subscriptionPayloadBytes, err := json.Marshal(finalPayload)
+		if err != nil {
+			// Fall back to original payload if serialization fails
+			subscriptionPayloadBytes = payloadBytes
+			logger.Warn("Failed to serialize subscription-specific payload, using default",
+				zap.String("subscription_id", subscription.ID.String()),
+				zap.Error(err))
+		}
+
+		deliveryResult := s.sendWebhookToSubscription(subscription, subscriptionPayloadBytes)
 		result.Webhooks[i] = deliveryResult
 
 		if deliveryResult.Success {
@@ -400,6 +471,7 @@ func (s *webhookService) SendEvent(req *models.SendEventRequest) (*models.EventP
 
 // sendWebhookToSubscription delivers a webhook payload to a single subscription endpoint
 // This is an internal helper method that handles the HTTP delivery and security headers
+// Implements retry logic based on the subscription's retry policy configuration
 // Parameters:
 //   - subscription: WebhookSubscription containing target URL and security credentials
 //   - payload: JSON-encoded webhook payload to be delivered
@@ -408,11 +480,12 @@ func (s *webhookService) SendEvent(req *models.SendEventRequest) (*models.EventP
 //   - WebhookDeliveryResult: Contains delivery status, response code, error details, and attempt count
 //
 // Process:
-//  1. Creates HTTP POST request to target URL
+//  1. Creates HTTP POST request to target URL with query parameters
 //  2. Adds security headers (Content-Type, User-Agent, HMAC signature, timestamp)
-//  3. Adds JWT authorization for private webhooks
-//  4. Sends request and evaluates response status
-//  5. Logs delivery success/failure with details
+//  3. Adds custom headers from subscription configuration
+//  4. Adds JWT authorization for private webhooks
+//  5. Attempts delivery with retry logic based on subscription policy
+//  6. Logs delivery success/failure with details
 //
 // Security: Includes HMAC signature verification and JWT tokens for private webhooks
 func (s *webhookService) sendWebhookToSubscription(subscription models.WebhookSubscription, payload []byte) models.WebhookDeliveryResult {
@@ -422,58 +495,141 @@ func (s *webhookService) sendWebhookToSubscription(subscription models.WebhookSu
 		Success:   false,
 	}
 
-	// Create HTTP request
-	req, err := http.NewRequest("POST", subscription.TargetURL, bytes.NewBuffer(payload))
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to create request: %v", err)
-		result.Error = &errMsg
-		return result
+	// Build target URL with query parameters
+	targetURL := subscription.TargetURL
+	if len(subscription.QueryParams) > 0 {
+		parsedURL, err := url.Parse(targetURL)
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to parse target URL: %v", err)
+			result.Error = &errMsg
+			return result
+		}
+
+		query := parsedURL.Query()
+		for key, value := range subscription.QueryParams {
+			query.Set(key, value)
+		}
+		parsedURL.RawQuery = query.Encode()
+		targetURL = parsedURL.String()
+		result.TargetURL = targetURL // Update result to show the final URL
 	}
 
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "github.com/sakibcoolz/loki-suite/2.0")
-
-	// Generate HMAC signature
-	signature := s.securitySvc.GenerateHMACSignature(payload, subscription.SecretToken)
-	req.Header.Set("X-Shavix-Signature", fmt.Sprintf("sha256=%s", signature))
-	req.Header.Set("X-Shavix-Timestamp", time.Now().Format(time.RFC3339))
-
-	// Add JWT token for private webhooks
-	if subscription.Type == models.WebhookTypePrivate && subscription.JWTToken != nil {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *subscription.JWTToken))
+	// Implement retry logic based on subscription policy
+	maxRetries := subscription.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 1 // Ensure at least one attempt
+	}
+	retryDelaySeconds := subscription.RetryDelaySeconds
+	if retryDelaySeconds <= 0 {
+		retryDelaySeconds = 5 // Default 5 second delay
 	}
 
-	// Send request
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to send request: %v", err)
-		result.Error = &errMsg
-		result.AttemptCount = 1
-		return result
-	}
-	defer resp.Body.Close()
+	var lastError error
+	var lastResponseCode *int
 
-	result.ResponseCode = &resp.StatusCode
-	result.AttemptCount = 1
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		result.AttemptCount = attempt
 
-	// Check response status
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		result.Success = true
-		logger.Debug("Webhook delivered successfully",
-			zap.String("webhook_id", subscription.ID.String()),
-			zap.String("target_url", subscription.TargetURL),
-			zap.Int("status_code", resp.StatusCode))
-	} else {
+		// Add delay before retry attempts (not on first attempt)
+		if attempt > 1 {
+			time.Sleep(time.Duration(retryDelaySeconds) * time.Second)
+			logger.Debug("Retrying webhook delivery",
+				zap.String("webhook_id", subscription.ID.String()),
+				zap.String("target_url", targetURL),
+				zap.Int("attempt", attempt),
+				zap.Int("max_retries", maxRetries))
+		}
+
+		// Create HTTP request for this attempt
+		req, err := http.NewRequest("POST", targetURL, bytes.NewBuffer(payload))
+		if err != nil {
+			lastError = fmt.Errorf("failed to create request: %w", err)
+			continue
+		}
+
+		// Set standard headers
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", "github.com/sakibcoolz/loki-suite/2.0")
+
+		// Add custom headers from subscription
+		for key, value := range subscription.Headers {
+			req.Header.Set(key, value)
+		}
+
+		// Generate HMAC signature
+		signature := s.securitySvc.GenerateHMACSignature(payload, subscription.SecretToken)
+		req.Header.Set("X-Shavix-Signature", fmt.Sprintf("sha256=%s", signature))
+		req.Header.Set("X-Shavix-Timestamp", time.Now().Format(time.RFC3339))
+		req.Header.Set("X-Shavix-Attempt", fmt.Sprintf("%d", attempt))
+
+		// Add JWT token for private webhooks
+		if subscription.Type == models.WebhookTypePrivate && subscription.JWTToken != nil {
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *subscription.JWTToken))
+		}
+
+		// Send request
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			lastError = fmt.Errorf("failed to send request: %w", err)
+			logger.Warn("Webhook delivery attempt failed",
+				zap.String("webhook_id", subscription.ID.String()),
+				zap.String("target_url", targetURL),
+				zap.Int("attempt", attempt),
+				zap.Error(err))
+			continue
+		}
+
+		lastResponseCode = &resp.StatusCode
+		result.ResponseCode = lastResponseCode
+
+		// Check response status
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			result.Success = true
+			resp.Body.Close()
+
+			logger.Debug("Webhook delivered successfully",
+				zap.String("webhook_id", subscription.ID.String()),
+				zap.String("target_url", targetURL),
+				zap.Int("status_code", resp.StatusCode),
+				zap.Int("attempt", attempt))
+
+			return result
+		}
+
+		// Read response body for error logging
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		errMsg := fmt.Sprintf("webhook returned status %d: %s", resp.StatusCode, string(bodyBytes))
-		result.Error = &errMsg
-		logger.Warn("Webhook delivery failed",
+		resp.Body.Close()
+
+		lastError = fmt.Errorf("webhook returned status %d: %s", resp.StatusCode, string(bodyBytes))
+
+		logger.Warn("Webhook delivery attempt failed",
 			zap.String("webhook_id", subscription.ID.String()),
-			zap.String("target_url", subscription.TargetURL),
+			zap.String("target_url", targetURL),
 			zap.Int("status_code", resp.StatusCode),
+			zap.Int("attempt", attempt),
 			zap.String("response", string(bodyBytes)))
+
+		// For 4xx errors (client errors), don't retry as they indicate permanent failures
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			logger.Info("Webhook delivery failed with client error, not retrying",
+				zap.String("webhook_id", subscription.ID.String()),
+				zap.Int("status_code", resp.StatusCode))
+			break
+		}
 	}
+
+	// All attempts failed
+	if lastError != nil {
+		errMsg := lastError.Error()
+		result.Error = &errMsg
+	}
+
+	logger.Error("Webhook delivery failed after all retries",
+		zap.String("webhook_id", subscription.ID.String()),
+		zap.String("target_url", targetURL),
+		zap.Int("attempts", result.AttemptCount),
+		zap.Int("max_retries", maxRetries),
+		zap.Any("last_response_code", lastResponseCode))
 
 	return result
 }
